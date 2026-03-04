@@ -43,10 +43,10 @@ enum Direction { up, down, left, right }
 
 class _SnakeGamePageState extends State<SnakeGamePage> {
   // Game Configuration
-  static const int columns = 20;
-  static const int rows = 30;
+  static const int columns = 100; // Increased density (approx 1/10th cell size)
+  static const int rows = 160;    // Increased density
   static const int totalSquares = columns * rows;
-  static const Duration gameSpeed = Duration(milliseconds: 200);
+  static const Duration gameSpeed = Duration(milliseconds: 50); // Faster speed for finer grid
 
   // Game State
   List<int> snakePosition = [];
@@ -67,13 +67,17 @@ class _SnakeGamePageState extends State<SnakeGamePage> {
     setState(() {
       isPlaying = true;
       score = 0;
+      
+      // Center the snake
+      int center = (rows ~/ 2) * columns + (columns ~/ 2);
       snakePosition = [
-        45, // Head
-        25, // Body
-        5,  // Tail
+        center,
+        center + columns,
+        center + 2 * columns,
       ];
-      direction = Direction.down;
-      lastMoveDirection = Direction.down;
+      
+      direction = Direction.up;
+      lastMoveDirection = Direction.up;
       generateNewFood();
     });
 
@@ -105,7 +109,6 @@ class _SnakeGamePageState extends State<SnakeGamePage> {
       switch (direction) {
         case Direction.down:
           if (currentHead >= totalSquares - columns) {
-            // Hit bottom wall -> wrap around or game over? Let's do Game Over for classic feel
             gameOver();
             return;
           }
@@ -182,8 +185,6 @@ class _SnakeGamePageState extends State<SnakeGamePage> {
   }
 
   void changeDirection(Direction newDirection) {
-    // Prevent reversing direction directly (e.g., can't go up if currently going down)
-    // Also prevent multiple direction changes in a single tick
     if (lastMoveDirection == null) return;
 
     if (newDirection == Direction.down && lastMoveDirection != Direction.up) {
@@ -260,55 +261,22 @@ class _SnakeGamePageState extends State<SnakeGamePage> {
                   }
                 },
                 child: Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey[800]!),
-                  ),
-                  child: GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: totalSquares,
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: columns,
+                  color: Colors.grey[900],
+                  child: Center(
+                    child: AspectRatio(
+                      aspectRatio: columns / rows,
+                      child: CustomPaint(
+                        painter: SnakeGamePainter(
+                          snakePosition: snakePosition,
+                          foodPosition: foodPosition,
+                          columns: columns,
+                          rows: rows,
+                          snakeColor: Colors.green,
+                          foodColor: Colors.redAccent,
+                        ),
+                        size: Size.infinite,
+                      ),
                     ),
-                    itemBuilder: (context, index) {
-                      if (snakePosition.contains(index)) {
-                        // Snake Head
-                        if (snakePosition.first == index) {
-                          return Container(
-                            margin: const EdgeInsets.all(1),
-                            decoration: BoxDecoration(
-                              color: Colors.green[700],
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          );
-                        }
-                        // Snake Body
-                        return Container(
-                          margin: const EdgeInsets.all(1),
-                          decoration: BoxDecoration(
-                            color: Colors.green,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        );
-                      } else if (index == foodPosition) {
-                        // Food
-                        return Container(
-                          margin: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(
-                            color: Colors.redAccent,
-                            shape: BoxShape.circle,
-                          ),
-                        );
-                      } else {
-                        // Empty Square
-                        return Container(
-                          margin: const EdgeInsets.all(1),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[900],
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        );
-                      }
-                    },
                   ),
                 ),
               ),
@@ -326,5 +294,60 @@ class _SnakeGamePageState extends State<SnakeGamePage> {
         ],
       ),
     );
+  }
+}
+
+class SnakeGamePainter extends CustomPainter {
+  final List<int> snakePosition;
+  final int foodPosition;
+  final int columns;
+  final int rows;
+  final Color snakeColor;
+  final Color foodColor;
+
+  SnakeGamePainter({
+    required this.snakePosition,
+    required this.foodPosition,
+    required this.columns,
+    required this.rows,
+    required this.snakeColor,
+    required this.foodColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    double cellWidth = size.width / columns;
+    double cellHeight = size.height / rows;
+    
+    // Use the calculated width/height to fill the space
+    // Since we use AspectRatio, cellWidth and cellHeight should be roughly equal (square)
+    
+    Paint snakePaint = Paint()..color = snakeColor;
+    Paint foodPaint = Paint()..color = foodColor;
+
+    // Draw Food
+    if (foodPosition != -1) {
+      int foodX = foodPosition % columns;
+      int foodY = foodPosition ~/ columns;
+      canvas.drawRect(
+        Rect.fromLTWH(foodX * cellWidth, foodY * cellHeight, cellWidth, cellHeight),
+        foodPaint,
+      );
+    }
+
+    // Draw Snake
+    for (int pos in snakePosition) {
+      int x = pos % columns;
+      int y = pos ~/ columns;
+      canvas.drawRect(
+        Rect.fromLTWH(x * cellWidth, y * cellHeight, cellWidth, cellHeight),
+        snakePaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant SnakeGamePainter oldDelegate) {
+    return true;
   }
 }
